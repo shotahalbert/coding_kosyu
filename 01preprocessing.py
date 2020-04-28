@@ -44,14 +44,11 @@ def filter_threshold(data, upper, lower, data_idx, threshold_steps):
 
 
 def save_image(dataRaw, dataFilter,
-               upper_x, lower_x,
-               upper_y, lower_y,
-               upper_z, lower_z,
+               threshold_u_l,
                dir_data, csv_name,
-               del_samples_x,
-               del_samples_y,
-               del_samples_z): #引数が大きすぎる気がする。del_samplesはセットで考えた方が綺麗に見えないかな?
-
+               del_samples_xyz): #引数が大きすぎる気がする。del_samplesはセットで考えた方が綺麗に見えないかな?
+    upper_x,lower_x,upper_y,lower_y,upper_z,lower_z = threshold_u_l
+    del_samples_x,del_samples_y,del_samples_z = del_samples_xyz
     fig = plt.figure(figsize=(20, 10))
     fig.suptitle("Diff Filtered file: %s \n Delete times X:%d Y:%d Z:%d" %
                  (csv_name, del_samples_x, del_samples_y, del_samples_z)) #ここから87ページまでは辞書とfor文を使って解決できないか?
@@ -207,31 +204,23 @@ def write_filter_data(dir_in,
         dataFilter = dataRaw
 
         # distance from median
-        threshold_upper_x, threshold_lower_x = \
-            get_threshold(dataFilter[:, 0], percentile, weight)
-        threshold_upper_y, threshold_lower_y = \
-            get_threshold(dataFilter[:, 1], percentile, weight)
-        threshold_upper_z, threshold_lower_z = \
-            get_threshold(dataFilter[:, 2], percentile, weight) #辞書for dataFilterはいちいち中身が変わっている
+        del_samples_xyz = [] ; threshold_u_l = []
+        dict_samples = {"keyx":0,"keyy":1,"keyz":2}
+        dict_xyz = {"keyx":"x","keyy":"y","keyz":"z"}
+        for key_dict in dict_samples:
+            threshold_upper, threshold_lower = \
+                get_threshold(dataFilter[:, dict_samples[key_dict]], percentile, weight)
         
-        dataFilter, del_samples_x = \
-            filter_threshold(dataFilter,
-                             threshold_upper_x,
-                             threshold_lower_x,
-                             0,
-                             threshold_steps)
-        dataFilter, del_samples_y = \
-            filter_threshold(dataFilter,
-                             threshold_upper_y,
-                             threshold_lower_y,
-                             1,
-                             threshold_steps)
-        dataFilter, del_samples_z = \
-            filter_threshold(dataFilter,
-                             threshold_upper_z,
-                             threshold_lower_z,
-                             2,
-                             threshold_steps)
+            dataFilter, del_samples = \
+                filter_threshold(dataFilter,
+                                threshold_upper,
+                                threshold_lower,
+                                dict_samples[key_dict],
+                                threshold_steps)
+            del_samples_xyz.append(del_samples)
+            threshold_u_l.append(threshold_upper) ; threshold_u_l.append(threshold_lower)
+        
+
 
         root, ext = os.path.splitext(csv_name)
         output_filename = os.path.join(dir_out + "filter/", root + ".csv")
@@ -250,14 +239,10 @@ def write_filter_data(dir_in,
         output_filename = os.path.join(dir_out, root + ".csv")
         np.savetxt(output_filename, data_Powers, delimiter=",")
 
-        save_image(dataRaw, dataFilter,
-                   threshold_upper_x, threshold_lower_x,
-                   threshold_upper_y, threshold_lower_y,
-                   threshold_upper_z, threshold_lower_z,
+        (dataRaw, dataFilter,
+                   threshold_u_l,
                    dir_out, csv_name,
-                   del_samples_x,
-                   del_samples_y,
-                   del_samples_z)
+                   del_samples_xyz) #引数の簡略化
 
 
 def main():
@@ -269,8 +254,8 @@ def main():
     list_data = ["learn_data","evaluate_data","test_data"] #3つの処理をlistforで回した
     for datatype in list_data: 
         print(datatype)
-        dir_in = "../data/" + datatype + "/raw_data/"
-        dir_out= "../data/" + datatype + "/processed/"
+        dir_in = "../../data/" + datatype + "/raw_data/" #gitいじってるうちにデータとプログラムの相対パスが変わっちゃいました
+        dir_out= "../../data/" + datatype + "/processed/"
         if not os.path.isdir(dir_in):
             os.mkdir(dir_in)
         if not os.path.isdir(dir_out):
